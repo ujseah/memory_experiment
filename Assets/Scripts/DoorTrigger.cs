@@ -1,19 +1,19 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 public class HeadsetPromptTrigger : MonoBehaviour
 {
     public GameObject uiCanvas;
 
-    void OnTriggerEnter(Collider other)
+    private void OnTriggerEnter(Collider other)
     {
         Debug.Log("Something entered the trigger: " + other.name);
 
-        // Check if the object that entered has a CharacterController
+        // Check if the object has a CharacterController (usually the player)
         if (other.GetComponent<CharacterController>())
         {
             Debug.Log("Player (with CharacterController) entered the trigger.");
 
-            // Try activating the canvas
+            // ✅ Show UI canvas if assigned
             if (uiCanvas != null)
             {
                 uiCanvas.SetActive(true);
@@ -22,6 +22,18 @@ public class HeadsetPromptTrigger : MonoBehaviour
             else
             {
                 Debug.LogWarning("uiCanvas reference is missing in the Inspector!");
+            }
+
+            // ✅ Tell GazeSpatialLogger to log total playtime
+            GazeSpatialLogger logger = FindObjectOfType<GazeSpatialLogger>();
+            if (logger != null)
+            {
+                logger.LogPlaytimeAndClose();
+                Debug.Log("GazeSpatialLogger: Logged total playtime.");
+            }
+            else
+            {
+                Debug.LogWarning("GazeSpatialLogger not found in the scene!");
             }
         }
     }

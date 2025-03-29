@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using System.Linq;
 using UnityEngine;
 
@@ -9,6 +9,7 @@ public class GazeSpatialLogger : MonoBehaviour
     public float forgivenessDuration = 0.3f;
 
     private StreamWriter writer;
+    private float playStartTime;
 
     private string currentObject = "None";
     private string stableObject = "None";
@@ -25,6 +26,8 @@ public class GazeSpatialLogger : MonoBehaviour
 
     void Start()
     {
+        playStartTime = Time.time;
+
         string folder = Application.persistentDataPath;
         string baseFileName = "SpatialMemoryLog";
         string extension = ".csv";
@@ -47,7 +50,6 @@ public class GazeSpatialLogger : MonoBehaviour
         string hitName = "None";
         Vector3 hitPoint = Vector3.zero;
 
-        // Perform gaze raycast
         if (Physics.Raycast(headset.position, headset.forward, out RaycastHit hit, 100f))
         {
             string objName = hit.collider.gameObject.name;
@@ -62,17 +64,14 @@ public class GazeSpatialLogger : MonoBehaviour
 
         if (hitName == currentObject)
         {
-            // Still looking at same object
             timeLastSeen = currentTime;
         }
         else if (hitName == stableObject && (currentTime - timeLastSeen <= forgivenessDuration))
         {
-            // User briefly looked away but came back quickly � keep stable gaze
             timeLastSeen = currentTime;
         }
         else
         {
-            // Object has changed AND not returning within forgiveness window
             if (stableObject != "None")
             {
                 float dwellTime = currentTime - stableStartTime;
@@ -81,7 +80,6 @@ public class GazeSpatialLogger : MonoBehaviour
                                  $"{lastHeadPosition.x:F2},{lastHeadPosition.y:F2},{lastHeadPosition.z:F2}");
             }
 
-            // Begin tracking new object
             stableObject = hitName;
             stableStartTime = currentTime;
             timeLastSeen = currentTime;
@@ -90,6 +88,15 @@ public class GazeSpatialLogger : MonoBehaviour
         }
 
         currentObject = hitName;
+    }
+
+    // ✅ External call: Triggered by DoorTrigger script to end session and log playtime
+    public void LogPlaytimeAndClose()
+    {
+        float playDuration = Time.time - playStartTime;
+        writer.WriteLine($"TOTAL_PLAYTIME,,,{playDuration:F2},,,,,,");
+        writer.Close();
+        Debug.Log($"Playtime logged and file closed. Total playtime: {playDuration:F2} seconds.");
     }
 
     void OnApplicationQuit()
