@@ -5,13 +5,19 @@ using UnityEngine;
 public class GazeSpatialLogger : MonoBehaviour
 {
     public Transform headset;
+    public float stabilityThreshold = 0.5f;
+    public float forgivenessDuration = 0.3f;
 
     private StreamWriter writer;
-    private string currentObject = "None";
-    private float startTime = 0f;
-    private Vector3 lastHitPoint;
 
-    // List of objects to ignore during gaze logging
+    private string currentObject = "None";
+    private string stableObject = "None";
+    private float gazeStartTime = 0f;
+    private float stableStartTime = 0f;
+    private float timeLastSeen = 0f;
+    private Vector3 lastHitPoint;
+    private Vector3 lastHeadPosition;
+
     private readonly string[] ignoredObjects = {
         "Left Wall", "Right Wall", "Front Wall", "Back Wall",
         "Ceiling", "Floor", "DoorTrigger", "PlayerMover"
@@ -25,12 +31,10 @@ public class GazeSpatialLogger : MonoBehaviour
 
         int fileIndex = 0;
         string fullPath;
-
-        // Find an unused filename
         do
         {
-            string numberedName = fileIndex == 0 ? baseFileName : $"{baseFileName}({fileIndex})";
-            fullPath = Path.Combine(folder, numberedName + extension);
+            string numbered = fileIndex == 0 ? baseFileName : $"{baseFileName}({fileIndex})";
+            fullPath = Path.Combine(folder, numbered + extension);
             fileIndex++;
         } while (File.Exists(fullPath));
 
@@ -40,55 +44,64 @@ public class GazeSpatialLogger : MonoBehaviour
 
     void Update()
     {
-        string lookedAt = "None";
+        string hitName = "None";
         Vector3 hitPoint = Vector3.zero;
 
-        // Cast a ray from the headset's forward direction
+        // Perform gaze raycast
         if (Physics.Raycast(headset.position, headset.forward, out RaycastHit hit, 100f))
         {
-            string hitName = hit.collider.gameObject.name;
-
-            // Skip logging if the object is in the ignore list
-            if (!ignoredObjects.Contains(hitName))
+            string objName = hit.collider.gameObject.name;
+            if (!ignoredObjects.Contains(objName))
             {
-                lookedAt = hitName;
+                hitName = objName;
                 hitPoint = hit.point;
             }
         }
 
-        // If the gaze target changed, log the previous one
-        if (lookedAt != currentObject)
+        float currentTime = Time.time;
+
+        if (hitName == currentObject)
         {
-            float endTime = Time.time;
-            float dwellTime = endTime - startTime;
-
-            if (startTime > 0f && currentObject != "None")
+            // Still looking at same object
+            timeLastSeen = currentTime;
+        }
+        else if (hitName == stableObject && (currentTime - timeLastSeen <= forgivenessDuration))
+        {
+            // User briefly looked away but came back quickly — keep stable gaze
+            timeLastSeen = currentTime;
+        }
+        else
+        {
+            // Object has changed AND not returning within forgiveness window
+            if (stableObject != "None")
             {
-                Vector3 headPos = headset.position;
-
-                writer.WriteLine($"{currentObject},{startTime:F2},{endTime:F2},{dwellTime:F2}," +
+                float dwellTime = currentTime - stableStartTime;
+                writer.WriteLine($"{stableObject},{stableStartTime:F2},{currentTime:F2},{dwellTime:F2}," +
                                  $"{lastHitPoint.x:F2},{lastHitPoint.y:F2},{lastHitPoint.z:F2}," +
-                                 $"{headPos.x:F2},{headPos.y:F2},{headPos.z:F2}");
+                                 $"{lastHeadPosition.x:F2},{lastHeadPosition.y:F2},{lastHeadPosition.z:F2}");
             }
 
-            currentObject = lookedAt;
+            // Begin tracking new object
+            stableObject = hitName;
+            stableStartTime = currentTime;
+            timeLastSeen = currentTime;
             lastHitPoint = hitPoint;
-            startTime = Time.time;
+            lastHeadPosition = headset.position;
         }
+
+        currentObject = hitName;
     }
 
     void OnApplicationQuit()
     {
-        // Log the final gaze before quitting
         float endTime = Time.time;
-        float dwellTime = endTime - startTime;
-        if (currentObject != "None")
-        {
-            Vector3 headPos = headset.position;
+        float dwellTime = endTime - stableStartTime;
 
-            writer.WriteLine($"{currentObject},{startTime:F2},{endTime:F2},{dwellTime:F2}," +
+        if (stableObject != "None")
+        {
+            writer.WriteLine($"{stableObject},{stableStartTime:F2},{endTime:F2},{dwellTime:F2}," +
                              $"{lastHitPoint.x:F2},{lastHitPoint.y:F2},{lastHitPoint.z:F2}," +
-                             $"{headPos.x:F2},{headPos.y:F2},{headPos.z:F2}");
+                             $"{lastHeadPosition.x:F2},{lastHeadPosition.y:F2},{lastHeadPosition.z:F2}");
         }
 
         writer.Close();
