@@ -14,7 +14,7 @@ public class GazeSpatialLogger : MonoBehaviour
     // List of objects to ignore during gaze logging
     private readonly string[] ignoredObjects = {
         "Left Wall", "Right Wall", "Front Wall", "Back Wall",
-        "Ceiling", "Floor", "DoorTrigger"
+        "Ceiling", "Floor", "DoorTrigger", "PlayerMover"
     };
 
     void Start()
