@@ -8,12 +8,11 @@ public class HeadsetPromptTrigger : MonoBehaviour
     {
         Debug.Log("Something entered the trigger: " + other.name);
 
-        // Check if the object has a CharacterController (usually the player)
-        if (other.GetComponent<CharacterController>())
+        // ✅ Check if the headset entered (tag-based or name-based)
+        if (other.CompareTag("PlayerHead") || other.name.Contains("CenterEye") || other.name.Contains("Camera"))
         {
-            Debug.Log("Player (with CharacterController) entered the trigger.");
+            Debug.Log("Headset entered the trigger.");
 
-            // ✅ Show UI canvas if assigned
             if (uiCanvas != null)
             {
                 uiCanvas.SetActive(true);
@@ -38,3 +37,4 @@ public class HeadsetPromptTrigger : MonoBehaviour
         }
     }
 }
+
