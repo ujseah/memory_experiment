@@ -5,15 +5,14 @@ using UnityEngine;
 public class GazeSpatialLogger : MonoBehaviour
 {
     public Transform headset;
-    public float stabilityThreshold = 0.5f;
-    public float forgivenessDuration = 0.3f;
+    public float forgivenessDuration = 0.15f;
+    public float forcedLogInterval = 0.05f;
 
     private StreamWriter writer;
     private float playStartTime;
 
     private string currentObject = "None";
     private string stableObject = "None";
-    private float gazeStartTime = 0f;
     private float stableStartTime = 0f;
     private float timeLastSeen = 0f;
     private Vector3 lastHitPoint;
@@ -60,11 +59,26 @@ public class GazeSpatialLogger : MonoBehaviour
             }
         }
 
+        // ✅ Skip if no valid object is being looked at
+        if (hitName == "None") return;
+
         float currentTime = Time.time;
 
         if (hitName == currentObject)
         {
             timeLastSeen = currentTime;
+
+            // Forced log for long gaze
+            if (stableObject == hitName && (currentTime - stableStartTime >= forcedLogInterval))
+            {
+                float dwellTime = currentTime - stableStartTime;
+                writer.WriteLine($"{stableObject},{stableStartTime:F2},{currentTime:F2},{dwellTime:F2}," +
+                                 $"{lastHitPoint.x:F2},{lastHitPoint.y:F2},{lastHitPoint.z:F2}," +
+                                 $"{lastHeadPosition.x:F2},{lastHeadPosition.y:F2},{lastHeadPosition.z:F2}");
+
+                stableStartTime = currentTime;
+                timeLastSeen = currentTime;
+            }
         }
         else if (hitName == stableObject && (currentTime - timeLastSeen <= forgivenessDuration))
         {
@@ -90,7 +104,6 @@ public class GazeSpatialLogger : MonoBehaviour
         currentObject = hitName;
     }
 
-    // ✅ External call: Triggered by DoorTrigger script to end session and log playtime
     public void LogPlaytimeAndClose()
     {
         float playDuration = Time.time - playStartTime;
